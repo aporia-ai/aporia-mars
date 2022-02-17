@@ -174,7 +174,7 @@ class DataFrameReadCSV(
             paths = op.path
         elif get_fs(op.path, op.storage_options).isdir(op.path):
             parsed_path = urlparse(op.path)
-            if parsed_path.scheme.lower() == "hdfs":
+            if parsed_path.scheme.lower() in ["hdfs", "s3"]:
                 path_prefix = f"{parsed_path.scheme}://{parsed_path.netloc}"
                 paths = get_fs(op.path, op.storage_options).ls(op.path)
             else:
@@ -683,7 +683,7 @@ def read_csv(
         file_path = path[0]
     elif get_fs(path, storage_options).isdir(path):
         parsed_path = urlparse(path)
-        if parsed_path.scheme.lower() == "hdfs":
+        if parsed_path.scheme.lower() in ["hdfs", "s3"]:
             path_prefix = f"{parsed_path.scheme}://{parsed_path.netloc}"
             file_path = path_prefix + get_fs(path, storage_options).ls(path)[0]
         else:

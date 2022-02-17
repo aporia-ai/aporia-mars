@@ -23,6 +23,7 @@ from pyarrow.fs import (
     FileSystem as ArrowFileSystem,
     LocalFileSystem as ArrowLocalFileSystem,
     HadoopFileSystem as ArrowHadoopFileSystem,
+    S3FileSystem as ArrowS3FileSystem,
     FileSelector,
     FileInfo,
     FileType,
@@ -32,7 +33,7 @@ from ...utils import implements, stringify_path
 from .core import FileSystem, path_type
 
 
-__all__ = ("ArrowBasedLocalFileSystem", "HadoopFileSystem")
+__all__ = ("ArrowBasedLocalFileSystem", "HadoopFileSystem", "S3FileSystem")
 
 
 # When pyarrow.fs.FileSystem gc collected,
@@ -143,6 +144,9 @@ class ArrowBasedFileSystem(FileSystem):
             raise ValueError(
                 f"mode can only be binary for " f"arrow based filesystem, got {mode}"
             )
+        if path.startswith("s3://"):
+            path = path.replace("s3://", "")
+
         mode = mode.rstrip("b")
         if mode == "w":
             file = self._arrow_fs.open_output_stream(path)
@@ -238,3 +242,35 @@ class HadoopFileSystem(ArrowBasedFileSystem):
             return urlparse(path).path
         else:
             return path
+
+
+class S3FileSystem(ArrowBasedFileSystem):
+    def __init__(
+        self,
+        host=None,
+        access_key=None,
+        secret_key=None,
+        region="us-east-1",
+    ):
+        access_key = access_key or os.environ.get("AWS_ACCESS_KEY_ID")
+        secret_key = secret_key or os.environ.get("AWS_SECRET_ACCESS_KEY")
+
+        arrow_fs = ArrowS3FileSystem(
+            access_key=access_key,
+            secret_key=secret_key,
+            region=region,
+        )
+        super().__init__(arrow_fs)
+
+    @staticmethod
+    def _process_path(path):
+        return ArrowBasedFileSystem._process_path(path)
+
+    def _get_file_info(self, path: path_type) -> FileInfo:
+        parsed_path = urlparse(path)
+        file_name = parsed_path.path[1:]
+
+        files_info = self._arrow_fs.get_file_info(FileSelector(parsed_path.netloc, recursive=True))
+        file_info_list = [file_info for file_info in files_info if file_info.base_name == file_name]
+
+        return file_info_list[0] if len(file_info_list) > 0 else None

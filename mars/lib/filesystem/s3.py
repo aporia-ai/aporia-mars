@@ -12,11 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .base import FileSystem
-from .core import file_size, glob, get_fs, open_file
-from .fsmap import FSMap
-from .local import LocalFileSystem
+try:
+    from pyarrow.fs import S3FileSystem as _ArrowS3FileSystem
+    from .arrow import S3FileSystem
 
-# noinspection PyUnresolvedReferences
-from .hdfs import HadoopFileSystem
-from .s3 import S3FileSystem
+    del _ArrowS3FileSystem
+except ImportError:  # pragma: no cover
+    try:
+        # pyarrow < 2.0.0
+        from pyarrow import S3FileSystem
+    except ImportError:
+        S3FileSystem = None
+
+from .core import register_filesystem
+
+
+if S3FileSystem is not None:  # pragma: no branch
+    register_filesystem("s3", S3FileSystem)
