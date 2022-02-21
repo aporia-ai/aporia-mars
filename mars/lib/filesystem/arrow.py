@@ -267,10 +267,13 @@ class S3FileSystem(ArrowBasedFileSystem):
         return ArrowBasedFileSystem._process_path(path)
 
     def _get_file_info(self, path: path_type) -> FileInfo:
-        parsed_path = urlparse(path)
-        file_name = parsed_path.path[1:]
+        path_without_schema = path.replace("s3://", "")
 
-        files_info = self._arrow_fs.get_file_info(FileSelector(parsed_path.netloc, recursive=True))
+        split_path = path_without_schema.split("/")
+        bucket_name = split_path[0]
+        file_name = split_path[-1]
+
+        files_info = self._arrow_fs.get_file_info(FileSelector(bucket_name, recursive=True))
         file_info_list = [file_info for file_info in files_info if file_info.base_name == file_name]
 
         return file_info_list[0] if len(file_info_list) > 0 else None
